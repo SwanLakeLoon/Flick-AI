@@ -1,6 +1,6 @@
 # Flick AI
 
-**Flick AI** is a multi-pass AI pipeline that extracts license plate information from surveillance videos, looks up vehicle registrations, and flags mismatches. It combines deterministic OCR from PlateRecognizer with visual reasoning from Google Gemini Flash to process batches of video files recorded at a known location, producing a clean, reviewable spreadsheet.
+**Flick AI** is a multi-pass AI pipeline that extracts license plate information from  videos, looks up vehicle registrations, and flags mismatches. It combines deterministic OCR from PlateRecognizer with visual reasoning from Google Gemini Flash to process batches of video files recorded at a known location, producing a clean, reviewable spreadsheet.
 
 ---
 
