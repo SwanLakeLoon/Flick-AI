@@ -1,0 +1,34 @@
+# API keys and secrets
+.env
+*.env
+.env.*
+
+# Video sources and output results
+videos/
+*.MOV
+*.mp4
+*.avi
+*.mkv
+*.csv
+
+# Retrospectives and internal docs
+retrospectives/
+
+# Pipeline cache files (if any persist outside /tmp)
+**/gemini_flash_cache.json
+**/lookup_cache.json
+**/alpr_cache.json
+**/_alpr_frames/
+**/_best_frames/
+**/_splits/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# macOS
+.DS_Store
+
+# One-off utility scripts
+scripts/
