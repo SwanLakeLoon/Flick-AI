@@ -1,0 +1,45 @@
+# Comparison: Tool vs Human Results
+Tool results: 62 plates
+Human results: 69 plates
+
+## Video: BATCH_TOTAL
+- **Matches**: 46
+- **Missed (FN)**: 12
+- **Hallucinations (FP)**: 8
+- **Substitutions**: 8
+
+### Substitutions (Human vs Tool):
+  - `3278BD` (Human) vs `327BBD` (Tool) | Diff: 1 | State: MN vs MN
+  - `872YWH` (Human) vs `872VWP` (Tool) | Diff: 2 | State: WI vs MN
+  - `APT1871` (Human) vs `APT1971` (Tool) | Diff: 1 | State: WI vs MN
+  - `DRW274` (Human) vs `DWK274` (Tool) | Diff: 2 | State: SD vs MN
+  - `KKH402` (Human) vs `KMH402` (Tool) | Diff: 1 | State: MN vs WI
+  - `ONW960` (Human) vs `ONW968` (Tool) | Diff: 1 | State: IA vs IA
+  - `PXA026` (Human) vs `PKA826` (Tool) | Diff: 2 | State: IA vs IA
+  - `TK5119` (Human) vs `TWS119` (Tool) | Diff: 2 | State: WI vs WI
+
+### Missed Plates:
+  - `37U698` (SD) Ford Expedition
+  - `57EMAN` (FL) Jeep 
+  - `71615` () Chevrolet 
+  - `9368ACY` (KS) Honda Odyssey
+  - `9USG192` (CA) Hyundai Tucson
+  - `A0DPTU0` (AL) Dodge Caravan
+  - `MVS526` (MN) Toyota Highlander
+  - `NOPLATE` () Jeep Wagoneer
+  - `QKG119` (IA) Chevrolet Silverado
+  - `UNABLETOREAD` () Chevrolet Suburban
+  - `XFY7543` (TX) Nissan Rogue
+  - `XL1T0R` () Toyota  Rav4
+
+### False Positives / Hallucinations:
+  - `71615G` (IL) Source: 20260320_072359_noaudio.mp4
+  - `7AV247` (MN) Source: 20260320_072841_noaudio.mp4
+  - `936ACY` (MN) Source: 20260320_072310_noaudio.mp4
+  - `CRU588` (WI) Source: 20260320_072359_noaudio.mp4
+  - `D4624547` (WI) Source: 20260320_072310_noaudio.mp4
+  - `IV73347` (WI) Source: 20260320_072359_noaudio.mp4
+  - `MYS464` (MN) Source: 20260320_072827_noaudio.mp4
+  - `PT1871` (WI) Source: 20260320_072359_noaudio.mp4
+
+---

@@ -1,0 +1,29 @@
+# Comparison: Tool vs Human Results
+Tool results: 50 plates
+Human results: 45 plates
+
+## Video: BATCH_TOTAL
+- **Matches**: 39
+- **Missed (FN)**: 2
+- **Hallucinations (FP)**: 7
+- **Substitutions**: 3
+
+### Substitutions (Human vs Tool):
+  - `1HD9` (Human) vs `1MD9` (Tool) | Diff: 1 | State: MN vs MI
+  - `232255` (Human) vs `292255` (Tool) | Diff: 1 | State: IL vs IL
+  - `JMG750` (Human) vs `ZMG750` (Tool) | Diff: 1 | State: MN vs MN
+
+### Missed Plates:
+  - `6E9ZV6` (MN) Ford Explorer
+  - `GMY791` (MN) Honda Accord
+
+### False Positives / Hallucinations:
+  - `207HWW` (MN) Source: 20260327_075035_noaudio.mp4
+  - `924Y49` (CO) Source: 20260327_075035_noaudio.mp4
+  - `9A692V6` (MN) Source: 20260327_075035_noaudio.mp4
+  - `9B692D3` (ND) Source: 20260327_075035_noaudio.mp4
+  - `AH2511` (WI) Source: 20260327_075035_noaudio.mp4
+  - `GMY9` (MN) Source: 20260327_074945_noaudio.mp4
+  - `QKL001` (IA) Source: 20260327_075035_noaudio.mp4
+
+---

@@ -14,7 +14,7 @@
 
 # ── Digits ────────────────────────────────────────
 0 -> D, O, Q, 3, 9       # 3 added: Batch 3 TNC307→TNC007 (3→0)
-1 -> 0, I, L, T, 7
+1 -> L, 0, I, T, 7
 3 -> 8, 0, 9             # 0 added: Batch 3 TNC307→TNC007 (0→3)
 4 -> 9, A
 5 -> S, 6
@@ -34,7 +34,7 @@ H -> X, N, M, W          # X added: Batch 3 DHEH75→DXEH75 (H→X)
 I -> T, 1, L
 J -> Z, 2
 K -> X
-L -> D, I, 1
+L -> 1, D, I             # 1 prioritized for LZT501 -> 1ZT501 confusion
 M -> N, W
 N -> M, W
 O -> Q, 0, D             # NEW: bidirectional partner for 0->O; Q→O and 0→O both observed

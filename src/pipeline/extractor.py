@@ -20,6 +20,7 @@ from .config import (
     MN_LOGO_DIGIT_RE, normalize_color
 )
 from .prompts import load_prompt, STATE_KNOWLEDGE
+from plate_formats import is_strict_format
 
 
 def is_valid_plate(plate: str) -> bool:
@@ -159,8 +160,9 @@ def run_alpr_pass(videos: list[str]) -> tuple[dict, list]:
                 plate = res.get("plate", "").upper()
                 score = res.get("score", 0.0)
                 if not plate or len(plate) < 4: continue
-                if score < 0.92:
-                    print(f"  [Confidence filter] Skipping low-confidence plate: '{plate}' ({score:.2f})")
+                
+                if score < 0.80:
+                    print(f"  [Confidence filter] Skipping very low-confidence plate: '{plate}' ({score:.2f})")
                     continue
                 
                 plate = strip_phantom_prefixes(plate)
@@ -180,6 +182,10 @@ def run_alpr_pass(videos: list[str]) -> tuple[dict, list]:
                 if fp_strip_type == 'WI_FP_SUFFIX':
                     state = 'WI'
                     print(f"  [FP Suffix] Detected WI fleet plate suffix → forcing state=WI for {plate}")
+                    
+                if score < 0.92 and not is_strict_format(plate, state):
+                    print(f"  [Regex Gate] Discarding '{plate}' ({state}) — score {score:.2f} but fails strict format")
+                    continue
                 
                 if plate not in unique_plates or score > unique_plates[plate]["score"]:
                     make, model, color = "", "", ""
@@ -388,8 +394,12 @@ def gemini_flash_video_pass(videos: list[str]) -> dict:
             state_confidence = float(item.get('state_confidence') or 0.6)
             timestamp_sec = float(item.get('timestamp_sec') or 0.0)
 
-            if plate_confidence < 0.92:
-                # Still record it, but lower priorityer] Discarding low-confidence plate: '{plate}' ({plate_confidence:.2f})")
+            if plate_confidence < 0.80:
+                print(f"  [Confidence filter] Discarding very low-confidence plate: '{plate}' ({plate_confidence:.2f})")
+                continue
+                
+            if plate_confidence < 0.92 and not is_strict_format(plate, state):
+                print(f"  [Regex Gate] Discarding '{plate}' ({state}) — confidence {plate_confidence:.2f} but fails strict format")
                 continue
 
             if plate not in unique_plates:

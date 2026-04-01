@@ -53,6 +53,7 @@ PLATE_FORMATS = {
   "IL": [r"^[A-Z]{2}\d{5}$",                             # AB12345
          r"^[A-Z]{3}\d{4}$",                             # ABC1234
          r"^\d{1,7}$",                                   # All-numeric plates
+         r"^\d{1,6}[A-Z]$",                              # B-Truck plates (e.g. 71615G)
          r"^[A-Z0-9]{1,7}$"],
   "IN": [r"^\d{3}[A-Z]{3}$",                             # 123ABC
          r"^[A-Z]{3}\d{3}$",                             # ABC123
@@ -176,6 +177,7 @@ PLATE_FORMATS = {
          r"^[A-Z0-9]{1,7}$"],
   "WI": [r"^[A-Z]{3}\d{4}$",                             # ABC1234 (standard passenger 7-char since 2017)
          r"^[A-Z]{3}\d{3}$",                             # ABC123  (6-char passenger/light truck)
+         r"^\d{3}[A-Z]{3}$",                             # 123ABC  (older/light truck)
          r"^[A-Z]{2}\d{4}$",                             # AB1234  (light truck series)
          r"^\d{5,6}[A-Z]{1,2}$",                        # 12345A, 12345AB (truck/farm/commercial)
          r"^\d{5,6}[A-Z]$",                              # 12345A  (farm/special)
@@ -259,3 +261,28 @@ def get_candidate_states(plate: str, exclude_state: str = "") -> list:
     candidates.sort(key=lambda s: rank_map.get(s, 999))
 
     return candidates
+
+
+def is_strict_format(plate: str, state: str) -> bool:
+    """
+    Return True if `plate` matches a STRICT (non-vanity) format for `state`.
+    If state is unknown, returns True if it matches a strict format for ANY state.
+    """
+    if not plate or len(plate) < 4:
+        return False
+        
+    clean_plate = plate.upper().strip()
+    clean_state = (state or "").upper().strip()
+    
+    if clean_state and clean_state in PLATE_FORMATS:
+        strict_patterns = [p for p in PLATE_FORMATS[clean_state] if p not in _VANITY_PATTERNS]
+        if any(re.match(p, clean_plate) for p in strict_patterns):
+            return True
+            
+    # If state is unknown, invalid, or failed its primary check, test against all strict formats globally
+    for patterns in PLATE_FORMATS.values():
+        strict_patterns = [p for p in patterns if p not in _VANITY_PATTERNS]
+        if any(re.match(p, clean_plate) for p in strict_patterns):
+            return True
+            
+    return False
