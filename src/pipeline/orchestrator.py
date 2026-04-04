@@ -350,7 +350,16 @@ def run_pipeline(target_dir: str, job_id: str = None, location_override: str = N
         data['color'] = color_code
         
         # ── Lookup ────────────────────────────────────────────────────────────
-        clean_state = state if state and len(state) == 2 else "MN"
+        # Item C: Use format analyzer to pick the best default state when state is unknown,
+        # rather than blindly falling back to MN for all uncertain plates.
+        # e.g., a LLLNNNN plate with no state should start with WI/TN, not MN.
+        if not state or len(state) != 2:
+            probable = get_probable_states(plate)
+            clean_state = probable[0] if probable else "MN"
+            if clean_state != "MN":
+                print(f"  [State default] {plate} has no state — format analysis suggests {clean_state} (not MN default)")
+        else:
+            clean_state = state
         p_conf = float(data.get('plate_confidence', 0.6))
         db_key = f"{plate}_{clean_state}"
         was_throttled = False
@@ -368,11 +377,27 @@ def run_pipeline(target_dir: str, job_id: str = None, location_override: str = N
         title = info.get("title", "")
         
         obs_words = set(f"{color_code} {make} {model}".lower().split())
-        
+
         match_status = ""
         if reg_found:
             reg_words = set(info_desc.lower().split())
             match_status = "Y" if (obs_words & reg_words or any(w in info_desc.lower() for w in obs_words if len(w)>3)) else "N"
+
+        # Item F: Early format-bias check — if the plate format doesn't match the assigned state
+        # BEFORE the first registration lookup, run format_bias_reeval to correct the state.
+        # This prevents burning API quota on lookups guaranteed to fail due to wrong state.
+        if not reg_found and not is_strict_format(plate, clean_state):
+            fmt_candidates = get_candidate_states(plate, exclude_state=clean_state)
+            if fmt_candidates and best_frame and os.path.exists(best_frame):
+                print(f"  [Early Format Bias] {plate} format invalid for {clean_state}, checking candidates {fmt_candidates[:4]} before lookup...")
+                stats["gemini_flash_image_calls"] += 1
+                fb_state_early, fb_plate_early = format_bias_reeval(best_frame, plate, clean_state, fmt_candidates)
+                if fb_state_early and fb_plate_early and fb_state_early != clean_state:
+                    print(f"    → Early format bias suggests {fb_state_early}/{fb_plate_early} — updating state before lookup")
+                    clean_state = fb_state_early
+                    plate = fb_plate_early
+                    # Re-check lookup key with corrected state
+                    db_key = f"{plate}_{clean_state}"
 
         initial_plate = plate
         initial_state = clean_state

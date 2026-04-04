@@ -237,12 +237,19 @@ def run_alpr_pass(videos: list[str]) -> tuple[dict, list]:
                         if cc.get("score", 0) > 0.5:
                             color = cc.get("color", "")
 
+                    # Item B: Use region.score as true state_confidence, NOT the plate read score.
+                    # PlateRecognizer returns region.score separately — it reflects how confident
+                    # the engine is about the STATE specifically, independent of plate character quality.
+                    # Conflating these caused high-confidence plate reads to bypass flash state verify
+                    # even when the state assignment was pure guess (e.g., OMA415 → MN instead of CO).
+                    region_score = float(region_data.get("score", 0.0)) if state != "UNKNOWN" else 0.0
+
                     unique_plates[plate] = {
                         "plate": plate,
                         "state": state if state != "UNKNOWN" else "",
                         "score": score,
                         "plate_confidence": score,
-                        "state_confidence": score if state != "UNKNOWN" else 0.0,
+                        "state_confidence": region_score,  # ← true state certainty, not plate quality
                         "timestamp_sec": float(fname.split("_")[1].replace(".jpg", "")) / 10.0,
                         "best_frame": fpath,
                         "video": vid_name,

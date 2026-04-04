@@ -75,9 +75,34 @@ _NEIGHBOR_STATES: dict = {
     "WI": ["MN", "IL", "IA"],
     "IA": ["MN", "WI", "IL", "MO", "SD"],
     "ND": ["MN", "SD", "MT"],
-    "SD": ["MN", "ND", "IA", "NE"],
-    "IL": ["IN", "MO", "WI", "IA"],
+    "SD": ["MN", "ND", "IA", "NE", "WY"],
+    "IL": ["IN", "MO", "WI", "IA", "KY"],
+    "IN": ["IL", "OH", "MI", "KY"],
+    "OH": ["IN", "MI", "PA", "WV", "KY"],
+    "MI": ["OH", "IN", "WI"],
+    "MO": ["IA", "IL", "KS", "NE", "KY", "TN", "AR"],
+    "NE": ["SD", "IA", "MO", "KS", "WY", "CO"],
+    "CO": ["NE", "KS", "WY", "UT", "NM", "OK"],
+    "TX": ["NM", "OK", "AR", "LA"],
+    "TN": ["KY", "MO", "AR", "MS", "AL", "GA", "NC", "VA"],
 }
+
+# ── Venue-Frequency Tier ───────────────────────────────────────────────────────
+# MSP airport hotel guests travel from all 50 states.
+# Based on high-frequency Delta/United routes through MSP and empirical
+# registration hit patterns, these non-adjacent states appear regularly
+# in parking lot footage and should be tried before giving up entirely.
+_VENUE_FREQ_STATES: list = [
+    "CO", "TN", "GA", "TX", "FL", "CA", "OH", "IN", "MO", "PA",
+    "NE", "AZ", "NC", "VA", "MA", "NY", "MI", "OR", "WA", "UT",
+]
+
+# ── Canadian Province Tier ─────────────────────────────────────────────────────
+# Canadian border provinces occasionally appear near MSP (esp. Manitoba).
+# Tried as a last resort — PlateToVin returns not-found gracefully for
+# unsupported provinces, so this adds minimal overhead.
+_CANADIAN_PROVINCES: list = ["MB", "ON", "BC", "AB", "SK", "QC"]
+
 
 def _promote(lst: list, value: str) -> None:
     if value in lst:
@@ -88,25 +113,35 @@ def _promote(lst: list, value: str) -> None:
 from .format_analyzer import get_probable_states
 
 def infer_likely_states(plate: str, assigned_state: str = "MN") -> list:
-    """Return a priority-ordered list of states based on formatting and geography."""
-    # 1. Base geographic neighbors
+    """Return a priority-ordered list of states to try for neighbor expansion.
+
+    Four tiers, in order:
+    1. Geographic neighbors that also match the plate's alphanumeric format
+    2. Remaining geographic neighbors (format-agnostic fallback)
+    3. Non-neighbor states that match the plate format exactly (capped at 5)
+    4. Venue-frequency states: high-frequency MSP airport hotel visitor states
+       (CO, TN, GA, TX, FL, CA, OH, etc.) — these are NOT geographic neighbors
+       but appear often due to direct flights and road trips.
+    Canadian provinces are handled separately in try_neighboring_states.
+    """
     neighbors = list(_NEIGHBOR_STATES.get(assigned_state, ["WI", "IA", "ND", "SD", "IL"]))
-    
-    # 2. Extract formatting matches 
     probable_states = get_probable_states(plate)
-    
-    # Tier 1: Neighbors that ALSO match the alphanumeric format perfectly
+
+    # Tier 1: Neighbors that ALSO match the plate format
     tier_1 = [s for s in neighbors if s in probable_states]
-    
-    # Tier 2: The remaining neighbors (in case of OCR hallucination breaking the format)
+
+    # Tier 2: Remaining geographic neighbors
     tier_2 = [s for s in neighbors if s not in tier_1]
-    
-    # Tier 3: Other states nationally that perfectly match the format (capped at 3 to prevent explosion)
-    tier_3 = [s for s in probable_states if s not in neighbors][:3]
-    
-    # Combine the tiers into a smart-fallback array
-    final_list = tier_1 + tier_2 + tier_3
-    
+
+    # Tier 3: Non-neighbor states that match the format (expanded from 3 to 5)
+    seen = set(tier_1 + tier_2 + [assigned_state])
+    tier_3 = [s for s in probable_states if s not in seen][:5]
+
+    # Tier 4: Venue-frequency states (non-adjacent but empirically common at MSP hotels)
+    seen.update(tier_3)
+    tier_4 = [s for s in _VENUE_FREQ_STATES if s not in seen]
+
+    final_list = tier_1 + tier_2 + tier_3 + tier_4
     return final_list if final_list else neighbors
 
 
@@ -117,23 +152,42 @@ def try_neighboring_states(
     db_cache: dict,
     db_cache_file: str,
 ) -> tuple:
-    """Try plate in neighboring states after all local lookups fail."""
-    neighbors = infer_likely_states(plate, assigned_state)
-    print(f"  [State expansion] {plate} — trying neighbors {neighbors} of {assigned_state}...")
-    for alt_state in neighbors:
-        alt_info = try_registration(plate, alt_state, db_cache, db_cache_file)
-        if alt_info.get("registration_found"):
-            alt_desc  = alt_info.get("desc", "")
-            alt_words = set(alt_desc.lower().split())
-            alt_match = "Y" if (obs_words & alt_words or any(w in alt_desc.lower() for w in obs_words if len(w) > 3)) else "N"
-            if alt_match == "Y":
-                print(f"    → State expansion hit! {plate} found in {alt_state}: {alt_desc[:40]}")
-                return alt_info, alt_state
-            else:
-                print(f"    → {plate} in {alt_state} registered ({alt_desc[:30]}) but vehicle mismatch — skipping.")
-    
-    print(f"    → State expansion: no match found for {plate} in any neighbor state.")
+    """Try plate in neighboring and venue-frequency states after local lookup fails.
+
+    Tries states in four tiers (geographic → format-match → venue-frequency → Canadian).
+    Only accepts a hit if the registered vehicle description overlaps the observed MMC.
+    """
+    candidates = infer_likely_states(plate, assigned_state)
+    print(f"  [State expansion] {plate} — trying {len(candidates)} states (geo+format+venue) from {assigned_state}...")
+
+    def _try_state_list(states: list, label: str) -> tuple:
+        for alt_state in states:
+            alt_info = try_registration(plate, alt_state, db_cache, db_cache_file)
+            if alt_info.get("registration_found"):
+                alt_desc = alt_info.get("desc", "")
+                alt_words = set(alt_desc.lower().split())
+                alt_match = "Y" if (obs_words & alt_words or any(w in alt_desc.lower() for w in obs_words if len(w) > 3)) else "N"
+                if alt_match == "Y":
+                    print(f"    → [{label}] Hit! {plate} found in {alt_state}: {alt_desc[:40]}")
+                    return alt_info, alt_state
+                else:
+                    print(f"    → [{label}] {plate} in {alt_state} registered but vehicle mismatch — skipping.")
+        return None, ""
+
+    # Primary: geographic + format + venue tiers
+    result, state = _try_state_list(candidates, "State expansion")
+    if result:
+        return result, state
+
+    # Canadian province fallback (last resort — low probability but catches MB plates)
+    ca_candidates = [p for p in _CANADIAN_PROVINCES if p != assigned_state]
+    result, state = _try_state_list(ca_candidates, "Canadian fallback")
+    if result:
+        return result, state
+
+    print(f"    → State expansion: no match found for {plate} in any state / province.")
     return None, ""
+
 
 
 def _clean_state(state: str) -> str:

@@ -159,15 +159,18 @@ def resolve_plate_escalation(
         else:
             print(f"  [State expansion] Skipping {plate} \u2014 vanity/invalid format.")
 
-    # Phase E: OCR character substitution brute force 
+    # Phase E: OCR character substitution brute force
+    # Item A: each candidate is also cross-tried against the top-2 format-probable states
+    # to catch cases where ALPR assigned the wrong state (e.g. MTY448→MTY440 IA not MN)
     if not found_y:
         sub_cache_key = f"ocr_sub_{plate}_{clean_state}"
         if sub_cache_key not in db_cache:
             cands = generate_substitution_candidates(plate, OCR_CONFUSION_MAP)
             if cands:
-                print(f"  [OCR sub] Trying {len(cands)} substitution candidates for {plate}(  {clean_state})...")
+                print(f"  [OCR sub] Trying {len(cands)} substitution candidates for {plate} ({clean_state})...")
             ocr_sub_hit = False
             for cand in cands:
+                # First try in the primary assigned state
                 stats["ocr_sub_attempts"] += 1
                 sub_info = try_registration(cand, clean_state, db_cache, db_cache_file)
                 if sub_info.get("registration_found"):
@@ -175,16 +178,38 @@ def resolve_plate_escalation(
                     s_words = set(s_desc.lower().split())
                     s_match = "Y" if (obs_words & s_words or any(w in s_desc.lower() for w in obs_words if len(w)>3)) else "N"
                     if s_match == "Y":
-                        print(f"    \u2192 OCR sub hit! {plate} \u2192 {cand} registered as {s_desc[:40]}")
+                        print(f"    \u2192 OCR sub hit! {plate} \u2192 {cand} ({clean_state}): {s_desc[:40]}")
                         plate, reg_found, info_desc, vin, title, match_status = cand, True, s_desc, sub_info.get("vin",""), sub_info.get("title",""), "Y"
                         stats["ocr_sub_hits"] += 1
                         ocr_sub_hit = True
                         found_y = True
                         break
-                    else:
-                        print(f"    \u2192 OCR sub {cand} registered ({s_desc[:30]}) but mismatched vehicle. Skipping.")
-                        if mismatch_fallback is None:
-                            mismatch_fallback = {"plate": cand, "state": clean_state, "desc": s_desc, "vin": sub_info.get("vin",""), "title": sub_info.get("title","")}
+                    elif mismatch_fallback is None:
+                        mismatch_fallback = {"plate": cand, "state": clean_state, "desc": s_desc, "vin": sub_info.get("vin",""), "title": sub_info.get("title","")}
+
+                # Item A: cross-try against top-2 format-probable states
+                if not found_y:
+                    alt_states = [s for s in get_probable_states(cand) if s != clean_state][:2]
+                    for alt_state in alt_states:
+                        stats["ocr_sub_attempts"] += 1
+                        alt_info = try_registration(cand, alt_state, db_cache, db_cache_file)
+                        if alt_info.get("registration_found"):
+                            a_desc = alt_info.get("desc","")
+                            a_words = set(a_desc.lower().split())
+                            a_match = "Y" if (obs_words & a_words or any(w in a_desc.lower() for w in obs_words if len(w)>3)) else "N"
+                            if a_match == "Y":
+                                print(f"    \u2192 OCR sub cross-state hit! {plate} \u2192 {cand} ({alt_state}): {a_desc[:40]}")
+                                plate, clean_state, reg_found = cand, alt_state, True
+                                info_desc, vin, title, match_status = a_desc, alt_info.get("vin",""), alt_info.get("title",""), "Y"
+                                stats["ocr_sub_hits"] += 1
+                                ocr_sub_hit = True
+                                found_y = True
+                                break
+                            elif mismatch_fallback is None:
+                                mismatch_fallback = {"plate": cand, "state": alt_state, "desc": a_desc, "vin": alt_info.get("vin",""), "title": alt_info.get("title","")}
+                if found_y:
+                    break
+
             db_cache[sub_cache_key] = {"attempted": True, "hit": ocr_sub_hit, "result_plate": plate if ocr_sub_hit else "", "match_status": match_status if ocr_sub_hit else ""}
             with open(db_cache_file, "w") as f:
                 json.dump(db_cache, f, indent=2)

@@ -4,7 +4,8 @@
 
 FORMAT_TO_STATES = {
     # 3 Letters, 4 Numbers (ABC 1234)
-    "LLLNNNN": ["WI", "MI", "NY", "OH", "PA", "TX", "VA", "WA", "GA", "NC"],
+    # WI, TN, MI, NY, OH, PA, TX, VA, WA, GA, NC
+    "LLLNNNN": ["WI", "TN", "MI", "NY", "OH", "PA", "TX", "VA", "WA", "GA", "NC"],
     
     # 3 Letters, 3 Numbers (ABC 123)
     "LLLNNN": ["MN", "IA", "ND", "AK", "HI", "IN", "LA", "ME", "MS", "NE", "NM", "OK", "OR", "SC", "VT"],
@@ -17,27 +18,40 @@ FORMAT_TO_STATES = {
     
     # 2 Letters, 4 Numbers (AB 1234)
     "LLNNNN": ["RI", "DC"],
+
+    # 3 Letters, 1 Number, 2 Letters (LLL N LL) — mixed CO/FL pattern
+    # CO: ABC-D12 (letter-heavy mixed), FL: ABC-D12
+    "LLLNLL": ["CO", "FL"],
     
-    # 3 Letters, 1 Letter, 2 Numbers (ABC D12)
+    # 4 Letters, 2 Numbers (LLLL NN) — CO newer format, FL
+    "LLLLNN": ["CO", "FL"],
+    
+    # 3 Numbers, 3 Letters (123 ABC)
+    "NNNLLL": ["KS", "MO", "AR", "GA"],
+
+    # 3 Letters, 1 Letter, 2 Numbers (ABC D12) — older GA / FL
     "LLLLNN": ["FL", "CO"],
-    
-    # 3 Letters, 1 Number, 2 Letters (ABC 1DE)
-    "LLLNNL": ["AR"],
     
     # 1 Letter, 2 Numbers, 3 Letters (A12 BCD)
     "LNNLLL": ["NJ"],
     
-    # 3 Numbers, 3 Letters (123 ABC)
-    "NNNLLL": ["KS"],
-    
     # 1 Number, 2 Letters, 4 Numbers (1AB 2345)
     "NLLNNNN": ["MD"],
     
-    # 6 Numbers (123456)
-    "NNNNNN": ["DE", "MA"],
+    # 6 Numbers (123456) — IL pure numeric, also DE, MA
+    "NNNNNN": ["IL", "DE", "MA"],
     
     # 7 Numbers (1234567)
-    "NNNNNNN": ["NH"]
+    "NNNNNNN": ["NH"],
+
+    # 3 Numbers, 3 Letters (alternate NNN LLL)
+    "NNNNLL": ["TX", "AL"],
+
+    # 2 Numbers, 3 Letters, 2 Numbers
+    "NNNLLNN": ["OH"],
+
+    # 7 char mixed common to GA/AL/FL vanity
+    "LLLLLNN": ["AL", "GA", "FL"],
 }
 
 VALID_US_STATES = {
