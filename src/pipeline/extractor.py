@@ -92,14 +92,46 @@ def run_alpr_pass(videos: list[str]) -> tuple[dict, list]:
         # Extract frames at 10fps if needed
         frame_files = sorted(glob.glob(os.path.join(frames_dir, "*.jpg")))
         if not frame_files:
-            print(f"\n[ALPR] Extracting frames for {vid_name} at 10 FPS (2K)...")
-            cmd = [
-                "ffmpeg", "-i", vid_path,
-                "-r", "10",
-                "-vf", "scale=2048:-2",
-                "-q:v", "1",
-                os.path.join(frames_dir, "frame_%04d.jpg")
-            ]
+            # Detect rotation metadata to handle phone videos correctly
+            rotation = 0
+            try:
+                probe = subprocess.run(
+                    ["ffprobe", "-v", "error", "-select_streams", "v:0",
+                     "-show_entries", "stream_side_data=rotation",
+                     "-of", "csv=p=0:nk=1", vid_path],
+                    capture_output=True, text=True, timeout=10
+                )
+                rot_str = probe.stdout.strip()
+                if rot_str:
+                    rotation = int(float(rot_str))
+            except Exception:
+                pass
+
+            if rotation != 0:
+                # Phone videos with rotation metadata: use -noautorotate + hflip,vflip
+                # This is the proven-correct approach for phone-recorded parking lot footage
+                # where the sensor orientation doesn't match the metadata claims.
+                vf_str = "hflip,vflip,scale=2048:-2"
+                print(f"  [Rotation] {vid_name} has rotation={rotation}° — using -noautorotate + hflip,vflip")
+                print(f"\n[ALPR] Extracting frames for {vid_name} at 10 FPS (2K) [vf={vf_str}]...")
+                cmd = [
+                    "ffmpeg", "-noautorotate", "-i", vid_path,
+                    "-r", "10",
+                    "-vf", vf_str,
+                    "-q:v", "1",
+                    os.path.join(frames_dir, "frame_%04d.jpg")
+                ]
+            else:
+                # No rotation metadata — simple scale
+                vf_str = "scale=2048:-2"
+                print(f"\n[ALPR] Extracting frames for {vid_name} at 10 FPS (2K) [vf={vf_str}]...")
+                cmd = [
+                    "ffmpeg", "-i", vid_path,
+                    "-r", "10",
+                    "-vf", vf_str,
+                    "-q:v", "1",
+                    os.path.join(frames_dir, "frame_%04d.jpg")
+                ]
             subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
             frame_files = sorted(glob.glob(os.path.join(frames_dir, "*.jpg")))
 
@@ -107,8 +139,9 @@ def run_alpr_pass(videos: list[str]) -> tuple[dict, list]:
         
         for fpath in frame_files:
             fname = os.path.basename(fpath)
-            if fname in alpr_cache:
-                data = alpr_cache[fname]
+            cache_key = f"{stem}_{fname}"
+            if cache_key in alpr_cache:
+                data = alpr_cache[cache_key]
             else:
                 try:
                     with open(fpath, 'rb') as fp:
@@ -129,7 +162,7 @@ def run_alpr_pass(videos: list[str]) -> tuple[dict, list]:
                     resp.raise_for_status()
                     res_json = resp.json()
                     data = {"results": res_json.get("results", [])}
-                    alpr_cache[fname] = data
+                    alpr_cache[cache_key] = data
                     with open(alpr_cache_file, "w") as f:
                         json.dump(alpr_cache, f, indent=2)
                     time.sleep(0.2)
@@ -183,7 +216,7 @@ def run_alpr_pass(videos: list[str]) -> tuple[dict, list]:
                     state = 'WI'
                     print(f"  [FP Suffix] Detected WI fleet plate suffix → forcing state=WI for {plate}")
                     
-                if score < 0.92 and not is_strict_format(plate, state):
+                if not is_strict_format(plate, state):
                     print(f"  [Regex Gate] Discarding '{plate}' ({state}) — score {score:.2f} but fails strict format")
                     continue
                 
@@ -210,7 +243,8 @@ def run_alpr_pass(videos: list[str]) -> tuple[dict, list]:
                         "video": vid_name,
                         "video_path": vid_path,
                         "source": "ALPR",
-                        "make": make, "model": model, "color": color
+                        "make": make, "model": model, "color": color,
+                        "vehicle_box": res.get("vehicle", {}).get("box"),
                     }
     
     print(f"\n[ALPR] → {len(unique_plates)} unique plates extracted.")
@@ -398,7 +432,7 @@ def gemini_flash_video_pass(videos: list[str]) -> dict:
                 print(f"  [Confidence filter] Discarding very low-confidence plate: '{plate}' ({plate_confidence:.2f})")
                 continue
                 
-            if plate_confidence < 0.92 and not is_strict_format(plate, state):
+            if not is_strict_format(plate, state):
                 print(f"  [Regex Gate] Discarding '{plate}' ({state}) — confidence {plate_confidence:.2f} but fails strict format")
                 continue
 

@@ -50,8 +50,17 @@ if not PTV_KEYS:
 # ── Gemini Client ──────────────────────────────────────────────────────────────
 from google import genai
 from google.genai import types as genai_types
+import httpx
 
-client = genai.Client(api_key=GEMINI_API_KEY)
+# Force HTTP/1.1: some networks block HTTP/2 ALPN negotiation which causes
+# httpx (used internally by google-genai) to hang on TLS handshake indefinitely.
+_http1_transport = httpx.HTTPTransport(http2=False)
+_http1_client = httpx.Client(transport=_http1_transport)
+
+client = genai.Client(
+    api_key=GEMINI_API_KEY,
+    http_options={'timeout': 120_000, 'httpx_client': _http1_client}
+)
 
 
 # ── Color Maps ─────────────────────────────────────────────────────────────────

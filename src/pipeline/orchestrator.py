@@ -38,6 +38,7 @@ from pipeline.lookup import (
 from pipeline.format_analyzer import get_probable_states
 from pipeline.ice import lookup_ice
 from pipeline.output import write_results, write_edge_cases, write_stats, print_stats_summary
+from plate_formats import is_valid_format, is_strict_format, MIN_PLATE_OUTPUT_LENGTH
 from pipeline.escalation import resolve_plate_escalation
 
 # Source Modules
@@ -325,6 +326,7 @@ def run_pipeline(target_dir: str, job_id: str = None, location_override: str = N
         make = data.get('make', '')
         model = data.get('model', '')
         color_code = data.get('color', '')
+        vehicle_box = data.get('vehicle_box')
 
         has_alpr_mmc = make != '' and model != '' and color_code != ''
         if has_alpr_mmc:
@@ -333,7 +335,7 @@ def run_pipeline(target_dir: str, job_id: str = None, location_override: str = N
         elif best_frame and os.path.exists(best_frame):
             print(f"  [Visual] Extracting make/model/color for {plate}...")
             stats["gemini_flash_image_calls"] += 1
-            vis = extract_visual_metadata(best_frame, plate)
+            vis = extract_visual_metadata(best_frame, plate, vehicle_box=vehicle_box)
             if not make: make = vis.get('make', '')
             if not model: model = vis.get('model', '')
             if not color_code:
@@ -441,6 +443,22 @@ def run_pipeline(target_dir: str, job_id: str = None, location_override: str = N
             seen.add(dk)
             deduped.append(r)
     csv_rows = deduped
+
+    # ── Final output gate: discard short / format-invalid plates ──────────
+    filtered_rows = []
+    for r in csv_rows:
+        plate_str, state_str = r[0], r[1]
+        has_reg = r[7] and r[7] != "registration not found" and "Error" not in r[7]
+        if len(plate_str) < MIN_PLATE_OUTPUT_LENGTH and not has_reg:
+            print(f"  [Output filter] Dropping '{plate_str}' ({state_str}) — too short ({len(plate_str)} chars, min {MIN_PLATE_OUTPUT_LENGTH}) and no registration")
+            continue
+        if not is_strict_format(plate_str, state_str) and not has_reg:
+            print(f"  [Output filter] Dropping '{plate_str}' ({state_str}) — fails strict format for {state_str} and no registration")
+            continue
+        filtered_rows.append(r)
+    if len(csv_rows) != len(filtered_rows):
+        print(f"  [Output filter] Dropped {len(csv_rows) - len(filtered_rows)} invalid plates from final output.")
+    csv_rows = filtered_rows
 
     # Outputs
     headers = [

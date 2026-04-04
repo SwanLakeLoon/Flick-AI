@@ -52,8 +52,9 @@ PLATE_FORMATS = {
          r"^[A-Z0-9]{1,7}$"],
   "IL": [r"^[A-Z]{2}\d{5}$",                             # AB12345
          r"^[A-Z]{3}\d{4}$",                             # ABC1234
-         r"^\d{1,7}$",                                   # All-numeric plates
-         r"^\d{1,6}[A-Z]$",                              # B-Truck plates (e.g. 71615G)
+         r"^[A-Z]\d{5,6}$",                              # P509722, A595268 (government/specialty)
+         r"^\d{5,7}$",                                   # All-numeric plates (5-7 digits only)
+         r"^\d{4,6}[A-Z]$",                              # B-Truck plates (e.g. 71615G)
          r"^[A-Z0-9]{1,7}$"],
   "IN": [r"^\d{3}[A-Z]{3}$",                             # 123ABC
          r"^[A-Z]{3}\d{3}$",                             # ABC123
@@ -105,12 +106,12 @@ PLATE_FORMATS = {
          r"^[A-Z0-9]{1,7}$"],
 
   # ── N ─────────────────────────────────────────────────────────────────────
-  "NE": [r"^\d{1,2}[A-Z0-9]{1,5}$",                     # County prefixes
+  "NE": [r"^\d{1,2}[A-Z0-9]{3,5}$",                     # County prefixes (min 3 suffix chars)
          r"^[A-Z0-9]{1,7}$"],
   "NV": [r"^\d[A-Z]{2}\d{3}$",                           # 1AB234
          r"^\d{3}[A-Z]{2}\d$",                           # 123AB4
          r"^[A-Z0-9]{1,7}$"],
-  "NH": [r"^\d{1,7}$",                                   # Pure numeric
+  "NH": [r"^\d{3,7}$",                                   # Pure numeric (3-7 digits)
          r"^\d{4}[A-Z]{2}$",                             # 1234AB
          r"^[A-Z0-9]{1,7}$"],
   "NJ": [r"^[A-Z]{3}\d{4}$",                             # ABC1234
@@ -139,8 +140,8 @@ PLATE_FORMATS = {
          r"^[A-Z0-9]{1,7}$"],
 
   # ── R ─────────────────────────────────────────────────────────────────────
-  "RI": [r"^\d{1,6}$",                                   # Pure numeric
-         r"^[A-Z]{2}\d{1,4}$",                          # AB1234
+  "RI": [r"^\d{3,6}$",                                   # Pure numeric (3-6 digits)
+         r"^[A-Z]{2}\d{2,4}$",                          # AB1234
          r"^[A-Z0-9]{1,6}$"],
 
   # ── S ─────────────────────────────────────────────────────────────────────
@@ -179,14 +180,19 @@ PLATE_FORMATS = {
          r"^[A-Z]{3}\d{3}$",                             # ABC123  (6-char passenger/light truck)
          r"^\d{3}[A-Z]{3}$",                             # 123ABC  (older/light truck)
          r"^[A-Z]{2}\d{4}$",                             # AB1234  (light truck series)
-         r"^\d{5,6}[A-Z]{1,2}$",                        # 12345A, 12345AB (truck/farm/commercial)
+         r"^\d{5,6}[A-Z]{1,3}$",                        # 46648AFT (fleet/temp — 5-6 digits + 1-3 letters)
          r"^\d{5,6}[A-Z]$",                              # 12345A  (farm/special)
          r"^[A-Z0-9]{2,7}$"],                            # Vanity up to 7 chars
-  "WY": [r"^\d{1,2}\d{1,5}$",                            # County prefix + serial
-         r"^\d{1,2}[A-Z0-9]{1,4}$",                     # County prefix + alphanumeric
+  "WY": [r"^\d{1,2}\d{3,5}$",                            # County prefix + serial (min 3 serial digits)
+         r"^\d{1,2}[A-Z0-9]{3,4}$",                     # County prefix + alphanumeric (min 3 suffix)
          r"^[A-Z0-9]{1,7}$"],
 }
 
+
+# ── Minimum output length ─────────────────────────────────────────────────────
+# No US state issues standard passenger plates shorter than 5 chars.
+# Plates shorter than this at the output stage are almost always OCR fragments.
+MIN_PLATE_OUTPUT_LENGTH = 5
 
 # ── Vanity/generic catch-all patterns to EXCLUDE from strict matching ─────────
 # These patterns match virtually any alphanumeric string and provide no
@@ -266,7 +272,9 @@ def get_candidate_states(plate: str, exclude_state: str = "") -> list:
 def is_strict_format(plate: str, state: str) -> bool:
     """
     Return True if `plate` matches a STRICT (non-vanity) format for `state`.
-    If state is unknown, returns True if it matches a strict format for ANY state.
+    If state is unknown or empty, falls back to checking all states.
+    Does NOT fall back globally when a known state fails — that was allowing
+    garbage plates to pass by matching some other state's loose patterns.
     """
     if not plate or len(plate) < 4:
         return False
@@ -275,11 +283,11 @@ def is_strict_format(plate: str, state: str) -> bool:
     clean_state = (state or "").upper().strip()
     
     if clean_state and clean_state in PLATE_FORMATS:
+        # Known state: only check THIS state's strict patterns
         strict_patterns = [p for p in PLATE_FORMATS[clean_state] if p not in _VANITY_PATTERNS]
-        if any(re.match(p, clean_plate) for p in strict_patterns):
-            return True
+        return any(re.match(p, clean_plate) for p in strict_patterns)
             
-    # If state is unknown, invalid, or failed its primary check, test against all strict formats globally
+    # Unknown/empty state only: test against all strict formats globally
     for patterns in PLATE_FORMATS.values():
         strict_patterns = [p for p in patterns if p not in _VANITY_PATTERNS]
         if any(re.match(p, clean_plate) for p in strict_patterns):

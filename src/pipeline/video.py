@@ -51,16 +51,45 @@ def extract_frame_at_timestamp(video_path: str, timestamp_sec: float, output_pat
             if timestamp_sec > 120.0 or (seg_idx * 120) <= timestamp_sec < ((seg_idx + 1) * 120 + 10):
                 use_video_path = orig_path
 
-    cmd = [
-        "ffmpeg",
-        "-ss", str(timestamp_sec),
-        "-i", use_video_path,
-        "-frames:v", "1",
-        "-vf", "scale=3840:-2",
-        "-q:v", "1",
-        "-y",
-        output_path
-    ]
+    # Detect rotation metadata
+    rotation = 0
+    try:
+        probe = subprocess.run(
+            ["ffprobe", "-v", "error", "-select_streams", "v:0",
+             "-show_entries", "stream_side_data=rotation",
+             "-of", "csv=p=0:nk=1", use_video_path],
+            capture_output=True, text=True, timeout=10
+        )
+        rot_str = probe.stdout.strip()
+        if rot_str:
+            rotation = int(float(rot_str))
+    except Exception:
+        pass
+
+    if rotation != 0:
+        vf_str = "hflip,vflip,scale=3840:-2"
+        cmd = [
+            "ffmpeg",
+            "-noautorotate",
+            "-ss", str(timestamp_sec),
+            "-i", use_video_path,
+            "-frames:v", "1",
+            "-vf", vf_str,
+            "-q:v", "1",
+            "-y",
+            output_path
+        ]
+    else:
+        cmd = [
+            "ffmpeg",
+            "-ss", str(timestamp_sec),
+            "-i", use_video_path,
+            "-frames:v", "1",
+            "-vf", "scale=3840:-2",
+            "-q:v", "1",
+            "-y",
+            output_path
+        ]
     try:
         subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
         if os.path.exists(output_path):

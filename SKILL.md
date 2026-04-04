@@ -116,6 +116,7 @@ Fallback databases if Carsxe returns no data:
 
 ## Notes & Conventions
 
+- **Python Execution**: Always run python with uv (e.g., `uv run python <script.py>`)
 - **Folder naming**: `MMDDYYYY` format (e.g., `03082026` for March 8, 2026)
 - **Output files**: Always named `results.csv` and `results.md` within each date folder
 - **One table per folder**: Each output file contains a single table covering all media in that folder
