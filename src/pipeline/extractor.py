@@ -217,8 +217,13 @@ def run_alpr_pass(videos: list[str]) -> tuple[dict, list]:
                     print(f"  [FP Suffix] Detected WI fleet plate suffix → forcing state=WI for {plate}")
                     
                 if not is_strict_format(plate, state):
-                    print(f"  [Regex Gate] Discarding '{plate}' ({state}) — score {score:.2f} but fails strict format")
-                    continue
+                    # High-confidence plates >=5 chars: let through as vanity/custom candidates
+                    # Registration lookup will be the final arbiter — don't hard-drop here
+                    if score >= 0.95 and len(plate) >= 5:
+                        print(f"  [Vanity Gate] Allowing '{plate}' ({state}) — score {score:.2f}, non-standard format, registration will decide")
+                    else:
+                        print(f"  [Regex Gate] Discarding '{plate}' ({state}) — score {score:.2f} but fails strict format")
+                        continue
                 
                 if plate not in unique_plates or score > unique_plates[plate]["score"]:
                     make, model, color = "", "", ""
@@ -433,8 +438,12 @@ def gemini_flash_video_pass(videos: list[str]) -> dict:
                 continue
                 
             if not is_strict_format(plate, state):
-                print(f"  [Regex Gate] Discarding '{plate}' ({state}) — confidence {plate_confidence:.2f} but fails strict format")
-                continue
+                # High-confidence plates >=5 chars: let through as vanity/custom candidates
+                if plate_confidence >= 0.95 and len(plate) >= 5:
+                    print(f"  [Vanity Gate] Allowing '{plate}' ({state}) — confidence {plate_confidence:.2f}, non-standard format, registration will decide")
+                else:
+                    print(f"  [Regex Gate] Discarding '{plate}' ({state}) — confidence {plate_confidence:.2f} but fails strict format")
+                    continue
 
             if plate not in unique_plates:
                 make = item.get('make') or ''

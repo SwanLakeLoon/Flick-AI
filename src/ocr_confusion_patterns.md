@@ -6,21 +6,21 @@
 #
 # Compiled from: 03082026, batch2, batch3, batch4, batch5, batch6, batch7, batch8,
 #   9000 E Bloomington Fwy, 9200 E Bloomington Fwy,
-#   Washington Ave Ramp, Lucy13s, Babysteps retrospectives.
+#   Washington Ave Ramp, Lucy13s, Babysteps, 03312026 retrospectives.
 #
 # ── ORDERING RULE ─────────────────────────────────
 # Substitutes are ordered most-common first so the brute-force loop
 # reaches the highest-probability candidate with fewest API calls.
 
 # ── Digits ────────────────────────────────────────
-0 -> D, O, Q, 3, 9       # 3 added: Batch 3 TNC307→TNC007 (3→0)
+0 -> 8, D, O, Q, 3, 9   # 8 PROMOTED to #1: 03312026 JWG828->JWG028, MTY448->MTY440, CWG8997->CWG6897
 1 -> L, 0, I, T, 7
 3 -> 8, 0, 9             # 0 added: Batch 3 TNC307→TNC007 (0→3)
 4 -> 9, A
 5 -> S, 6
 6 -> 5, G, 8
 7 -> Z, T, 1, J
-8 -> B, 3, N, 6          # N added: Batch 3 P8M309→PNG309 (8→N)
+8 -> 0, B, 3, N, 6      # 0 PROMOTED to #1 (bidirectional with 0->8): 03312026 batch retrospec
 9 -> 0, 3, 4
 
 # ── Letters ───────────────────────────────────────
@@ -35,11 +35,11 @@ I -> T, 1, L
 J -> Z, 2
 K -> X
 L -> 1, D, I             # 1 prioritized for LZT501 -> 1ZT501 confusion
-M -> N, W
-N -> M, W
+M -> N, W               # N prioritized: 03312026 BRN5134->BRM5134 (M->N miss in Jeep Compass)
+N -> M, W               # M prioritized: symmetric with M->N
 O -> Q, 0, D             # NEW: bidirectional partner for 0->O; Q→O and 0→O both observed
 P -> F, R
-Q -> O, 0                # NEW: Babysteps PAPAQ→PAPAO (Q→O never attempted before)
+Q -> 0, O               # 0 PROMOTED to #1: 03312026 EEG092->EEGQ92 (Q->0 confirmed miss)
 R -> P, B, F, G
 S -> 5, B, E
 T -> I, Y, 7, 1          # NEW: T→I (Babysteps BTP350→BIP350), T→Y (PTA461→PYA461)
