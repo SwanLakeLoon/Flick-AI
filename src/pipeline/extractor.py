@@ -235,7 +235,7 @@ def run_alpr_pass(videos: list[str]) -> tuple[dict, list]:
                     if res.get("color") and len(res["color"]) > 0:
                         cc = res["color"][0]
                         if cc.get("score", 0) > 0.5:
-                            color = cc.get("color", "")
+                            color = normalize_color(cc.get("color", ""))
 
                     # Item B: Use region.score as true state_confidence, NOT the plate read score.
                     # PlateRecognizer returns region.score separately — it reflects how confident
